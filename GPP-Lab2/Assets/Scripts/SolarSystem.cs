@@ -6,29 +6,23 @@ public class SolarSystem : MonoBehaviour
     [Header("Все гравитирующие тела")]
     public List<GravityBody> bodies = new List<GravityBody>();
 
-    [Header("Включить релятивистскую поправку (бонус)")]
-    public bool enableRelativity = false;
-
-    // "Скорость света" в игровых единицах. 
-    // В реальности c огромна, поэтому поправка почти нулевая.
-    // Мы её искусственно уменьшим, чтобы увидеть эффект.
-    public float speedOfLight = 50f;
+    [Header("Настройка эффекта ОТО")]
+    [Tooltip("Искусственно заниженная скорость света для наглядности эффекта. В реальности эффект виден за столетия, здесь - за минуты.")]
+    public float speedOfLight = 150f;
 
     void Awake()
     {
-        // Автоматически собираем все GravityBody в сцене
         var all = FindObjectsByType<GravityBody>(FindObjectsSortMode.None);
         bodies.AddRange(all);
     }
 
     void Start()
     {
-        AssignCircularOrbits();
+        AssignOrbits();
     }
 
-    void AssignCircularOrbits()
+    void AssignOrbits()
     {
-        // Находим Солнце (самое массивное тело)
         GravityBody sun = null;
         foreach (var b in bodies)
         {
@@ -43,20 +37,30 @@ public class SolarSystem : MonoBehaviour
             Vector3 toSun = sun.transform.position - planet.transform.position;
             float r = toSun.magnitude;
 
-            // Скорость для круговой орбиты
+            // Базовая скорость для круговой орбиты
             float v = Mathf.Sqrt(GravityBody.G * sun.mass / r);
 
-            // Направление скорости - перпендикулярно радиусу (в плоскости XZ)
-            Vector3 tangent = Vector3.Cross(toSun.normalized, Vector3.up).normalized;
+            // Задаем эллиптичность орбиты
+            float eccentricityFactor = 1.0f;
 
-            // Применяем скорость через Rigidbody
-            planet.rb.linearVelocity = tangent * v;
+            // Меркурий: делаем орбиту вытянутой, чтобы было ЧЕМУ смещаться
+            if (planet.gameObject.name == "Mercury")
+            {
+                eccentricityFactor = 1.15f; // 1.15 = старт из перигелия, полет к апогею
+            }
+            // Марс: небольшой эллипс для реалистичности
+            else if (planet.gameObject.name == "Mars")
+            {
+                eccentricityFactor = 1.05f;
+            }
+
+            Vector3 tangent = Vector3.Cross(toSun.normalized, Vector3.up).normalized;
+            planet.rb.linearVelocity = tangent * v * eccentricityFactor;
         }
     }
 
     void FixedUpdate()
     {
-        // Для каждой пары тел считаем силу тяготения
         for (int i = 0; i < bodies.Count; i++)
         {
             for (int j = i + 1; j < bodies.Count; j++)
@@ -71,29 +75,23 @@ public class SolarSystem : MonoBehaviour
         Vector3 direction = b.transform.position - a.transform.position;
         float sqrDist = direction.sqrMagnitude;
 
-        // Защита от деления на ноль (если тела столкнутся)
-        if (sqrDist < 0.01f) return;
+        if (sqrDist < 0.1f) return; // Защита от сингулярности
 
         Vector3 unitDir = direction.normalized;
-
-        // Базовая ньютоновская сила: F = G * m1 * m2 / r^2
         float forceMag = GravityBody.G * a.mass * b.mass / sqrDist;
 
-        // === БОНУС: релятивистская поправка ОТО ===
-        if (enableRelativity)
-        {
-            // Поправка: (1 + 3*GM/(c^2 * r))
-            // M - масса более тяжелого тела (для простоты - сумма)
-            float M = a.mass + b.mass;
-            float r = Mathf.Sqrt(sqrDist);
-            float correction = 1f + (3f * GravityBody.G * M)
-                                 / (speedOfLight * speedOfLight * r);
-            forceMag *= correction;
-        }
+        // === ПОСТОЯННАЯ РЕЛЯТИВИСТСКАЯ ПОПРАВКА (ОТО) ===
+        // Используем массу доминирующего тела (Солнца)
+        float dominantMass = Mathf.Max(a.mass, b.mass);
+        float r = Mathf.Sqrt(sqrDist);
+
+        // Формула 1PN поправки: сила увеличивается тем сильнее, чем ближе планета к Солнцу (чем меньше r)
+        float correction = 1f + (3f * GravityBody.G * dominantMass) / (speedOfLight * speedOfLight * r);
+
+        forceMag *= correction;
 
         Vector3 force = unitDir * forceMag;
 
-        // По третьему закону Ньютона: силы равны и противоположны
         a.accumulatedForce += force;
         b.accumulatedForce -= force;
     }

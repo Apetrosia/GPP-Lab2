@@ -7,8 +7,14 @@ public class SolarSystem : MonoBehaviour
     public List<GravityBody> bodies = new List<GravityBody>();
 
     [Header("Настройка эффекта ОТО")]
-    [Tooltip("Искусственно заниженная скорость света для наглядности эффекта. В реальности эффект виден за столетия, здесь - за минуты.")]
+    [Tooltip("Искусственно заниженная скорость света для наглядности эффекта.")]
     public float speedOfLight = 150f;
+
+    [Header("Визуализация")]
+    [Tooltip("Показывать ли ярко-зеленый след орбиты Меркурия")]
+    public bool showMercuryTrajectory = true;
+
+    private TrailRenderer mercuryTrail;
 
     void Awake()
     {
@@ -19,6 +25,37 @@ public class SolarSystem : MonoBehaviour
     void Start()
     {
         AssignOrbits();
+
+        // Находим Меркурий и его компонент TrailRenderer при старте
+        GameObject mercuryObj = GameObject.Find("Mercury");
+        if (mercuryObj != null)
+        {
+            mercuryTrail = mercuryObj.GetComponent<TrailRenderer>();
+            if (mercuryTrail != null)
+            {
+                // Применяем начальное состояние галочки
+                mercuryTrail.enabled = showMercuryTrajectory;
+            }
+            else
+            {
+                Debug.LogWarning("На Меркурии не найден компонент TrailRenderer!");
+            }
+        }
+    }
+
+    void Update()
+    {
+        // Если галочка в инспекторе изменилась, обновляем видимость следа
+        if (mercuryTrail != null && mercuryTrail.enabled != showMercuryTrajectory)
+        {
+            mercuryTrail.enabled = showMercuryTrajectory;
+
+            // Опционально: очищаем след при выключении, чтобы он не висел в воздухе
+            if (!showMercuryTrajectory)
+            {
+                mercuryTrail.Clear();
+            }
+        }
     }
 
     void AssignOrbits()
@@ -37,18 +74,13 @@ public class SolarSystem : MonoBehaviour
             Vector3 toSun = sun.transform.position - planet.transform.position;
             float r = toSun.magnitude;
 
-            // Базовая скорость для круговой орбиты
             float v = Mathf.Sqrt(GravityBody.G * sun.mass / r);
-
-            // Задаем эллиптичность орбиты
             float eccentricityFactor = 1.0f;
 
-            // Меркурий: делаем орбиту вытянутой, чтобы было ЧЕМУ смещаться
             if (planet.gameObject.name == "Mercury")
             {
-                eccentricityFactor = 1.15f; // 1.15 = старт из перигелия, полет к апогею
+                eccentricityFactor = 1.15f;
             }
-            // Марс: небольшой эллипс для реалистичности
             else if (planet.gameObject.name == "Mars")
             {
                 eccentricityFactor = 1.05f;
@@ -75,19 +107,15 @@ public class SolarSystem : MonoBehaviour
         Vector3 direction = b.transform.position - a.transform.position;
         float sqrDist = direction.sqrMagnitude;
 
-        if (sqrDist < 0.1f) return; // Защита от сингулярности
+        if (sqrDist < 0.1f) return;
 
         Vector3 unitDir = direction.normalized;
         float forceMag = GravityBody.G * a.mass * b.mass / sqrDist;
 
-        // === ПОСТОЯННАЯ РЕЛЯТИВИСТСКАЯ ПОПРАВКА (ОТО) ===
-        // Используем массу доминирующего тела (Солнца)
         float dominantMass = Mathf.Max(a.mass, b.mass);
         float r = Mathf.Sqrt(sqrDist);
 
-        // Формула 1PN поправки: сила увеличивается тем сильнее, чем ближе планета к Солнцу (чем меньше r)
         float correction = 1f + (3f * GravityBody.G * dominantMass) / (speedOfLight * speedOfLight * r);
-
         forceMag *= correction;
 
         Vector3 force = unitDir * forceMag;

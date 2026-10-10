@@ -16,7 +16,6 @@ public class SpaceshipController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        // Отключаем гравитацию для космоса
         rb.useGravity = false;
     }
 
@@ -28,11 +27,9 @@ public class SpaceshipController : MonoBehaviour
 
     private void HandleRotation()
     {
-        float pitchInput = Input.GetAxis("Vertical");   // W = 1, S = -1
-        float yawInput = -Input.GetAxis("Horizontal");   // D = 1, A = -1
+        float pitchInput = Input.GetAxis("Vertical");
+        float yawInput = -Input.GetAxis("Horizontal");
 
-        // Тангаж (W/S): вращаем вокруг локальной X (ось крыльев)
-        // Рыскание (A/D): вращаем вокруг локальной Z (сейчас она смотрит в мировое "небо")
         Vector3 torque = new Vector3(-pitchInput, 0f, yawInput) * rotationSpeed;
 
         rb.AddRelativeTorque(torque, ForceMode.Force);

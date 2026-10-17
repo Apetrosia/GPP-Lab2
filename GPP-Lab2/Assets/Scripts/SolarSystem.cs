@@ -26,14 +26,12 @@ public class SolarSystem : MonoBehaviour
     {
         AssignOrbits();
 
-        // Находим Меркурий и его компонент TrailRenderer при старте
         GameObject mercuryObj = GameObject.Find("Mercury");
         if (mercuryObj != null)
         {
             mercuryTrail = mercuryObj.GetComponent<TrailRenderer>();
             if (mercuryTrail != null)
             {
-                // Применяем начальное состояние галочки
                 mercuryTrail.enabled = showMercuryTrajectory;
             }
             else
@@ -45,12 +43,10 @@ public class SolarSystem : MonoBehaviour
 
     void Update()
     {
-        // Если галочка в инспекторе изменилась, обновляем видимость следа
         if (mercuryTrail != null && mercuryTrail.enabled != showMercuryTrajectory)
         {
             mercuryTrail.enabled = showMercuryTrajectory;
 
-            // Опционально: очищаем след при выключении, чтобы он не висел в воздухе
             if (!showMercuryTrajectory)
             {
                 mercuryTrail.Clear();

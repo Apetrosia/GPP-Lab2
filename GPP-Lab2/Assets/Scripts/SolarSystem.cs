@@ -14,6 +14,13 @@ public class SolarSystem : MonoBehaviour
     [Tooltip("Показывать ли ярко-зеленый след орбиты Меркурия")]
     public bool showMercuryTrajectory = true;
 
+    [Header("Космический корабль")]
+    [Tooltip("Rigidbody корабля. Планеты на него действуют, он на планеты - нет.")]
+    public Rigidbody spaceship;
+
+    [Tooltip("Множитель гравитации, действующей на корабль (1 = как у планет)")]
+    public float shipGravityScale = 0.1f;
+
     private TrailRenderer mercuryTrail;
 
     void Awake()
@@ -96,6 +103,8 @@ public class SolarSystem : MonoBehaviour
                 ApplyGravity(bodies[i], bodies[j]);
             }
         }
+
+        ApplyGravityToShip();
     }
 
     void ApplyGravity(GravityBody a, GravityBody b)
@@ -118,5 +127,25 @@ public class SolarSystem : MonoBehaviour
 
         a.accumulatedForce += force;
         b.accumulatedForce -= force;
+    }
+
+    void ApplyGravityToShip()
+    {
+        if (spaceship == null) return;
+
+        foreach (var planet in bodies)
+        {
+            Vector3 direction = planet.transform.position - spaceship.position;
+            float sqrDist = direction.sqrMagnitude;
+
+            if (sqrDist < 0.1f) continue;
+
+            float r = Mathf.Sqrt(sqrDist);
+
+            float forceMag = GravityBody.G * spaceship.mass * planet.mass / sqrDist;
+            forceMag *= shipGravityScale;
+
+            spaceship.AddForce(direction / r * forceMag, ForceMode.Force);
+        }
     }
 }
